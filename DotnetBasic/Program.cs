@@ -1,61 +1,100 @@
-﻿// Console.WriteLine("Hello, World!");
-//
-// string description = "This is a sample description.";
-// int priority = 1;
-// string dueDate = "2026-8-24";
-// string title = "Dotnet Class";
-// bool isComplete = false;
-// decimal cost = 200.45m;
-// DateTime dueDate2 = DateTime.Now;
-//
-// Console.WriteLine("The title is: " + title);    
-// Console.WriteLine(description);
-// Console.WriteLine("The priority level: "+ priority);
-// Console.WriteLine("This was written on: " + dueDate);
-// Console.WriteLine("The due date is: " + dueDate2);
-// Console.WriteLine("The class completed? " + isComplete);
-// Console.WriteLine("Cost for the course: " + cost);
+﻿using DotnetBasic;
 
-
-// Day 2 - Control Flow, Loops and Methods
-
-/*
- * Add, List, Complete, Delete methods
- * In a loop
- * SearchTask method
- */
- 
-public class Task
+public class Task : Entity
 {
-    public int Id { get; set; }
-    public string Status { get; set; }
-    public string Description { get; set; }
+    private string status;
+    private string description;
 
+    public string Status
+    {
+        get
+        {
+            return status;
+        }
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new ArgumentException("Status cannot be null or whitespace.");
+            }
+
+            string newStatus = value.Trim().ToLower();
+
+            if (newStatus != "new" &&
+                newStatus != "pending" &&
+                newStatus != "complete")
+            {
+                throw new ArgumentException(
+                    "Status must be 'new', 'pending', or 'complete'."
+                );
+            }
+
+            status = newStatus;
+        }
+    }
+
+    public string Description
+    {
+        get
+        {
+            return description;
+        }
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new ArgumentException(
+                    "Task description cannot be null or whitespace."
+                );
+            }
+
+            description = value.Trim();
+        }
+    }
+
+    public override void DisplayTask()
+    {
+        Console.WriteLine(
+            $"Task Id: {Id}\n" +
+            $"Task Status: {Status}\n" +
+            $"Task Description: {Description}\n"
+        );
+    }
 }
 
-public class Program
+public class Program : TaskMethods
 {
-    static List<Task> tasks = new List<Task>();
-    static int nextId = 1;
-    public static void AddTask()
+    private static List<Task> tasks = new List<Task>();
+
+    // Never decreases, so IDs are never reused.
+    private static int nextId = 1;
+
+    public void AddTask()
     {
         Console.Write("Enter task description: ");
         string description = Console.ReadLine();
 
-        Task task = new Task
+        try
         {
-            Id = nextId++,
-            Status = "Pending",
-            Description = description
-        };
+            Task task = new Task
+            {
+                Id = nextId++,
+                Status = "new",
+                Description = description
+            };
 
-        tasks.Add(task);
+            tasks.Add(task);
 
-        Console.WriteLine("Task added successfully!");
-
+            Console.WriteLine("Task added successfully!");
+            Console.WriteLine($"Task ID: {task.Id}");
+        }
+        catch (ArgumentException ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
     }
 
-    public static void ListTask()
+    public void ListTask()
     {
         if (tasks.Count == 0)
         {
@@ -65,78 +104,94 @@ public class Program
 
         foreach (Task task in tasks)
         {
-            Console.WriteLine("Task id:" + task.Id +"\nTask status:"+ task.Status + " Task description:" + task.Description);
-        }
-        
-    }
-
-
-    public static void CompleteTask()
-    {
-        Console.Write("Enter task id: ");
-        if (int.TryParse(Console.ReadLine(), out int check_id))
-        {
-            Console.WriteLine($"Valid ID: {check_id}");
-        }
-        foreach (Task task in tasks)
-        {
-            if (task.Id == check_id)
-            {
-                Console.WriteLine("Task completed successfully!");
-                task.Status = "Completed";
-                return;
-            }
-            else
-            {
-                Console.WriteLine("Invalid task id!");
-            }
+            task.DisplayTask();
         }
     }
 
-    public static void DeleteTask()
+    public Task FindById(int id)
+    {
+        return tasks.Find(task => task.Id == id);
+    }
+
+    public Task FindTaskById()
     {
         Console.Write("Enter task id: ");
 
-        if (!int.TryParse(Console.ReadLine(), out int check_id))
+        if (!int.TryParse(Console.ReadLine(), out int id))
         {
-            Console.WriteLine("Invalid input!");
-            return;
+            Console.WriteLine("Invalid task ID!");
+            return null;
         }
 
-        Task taskToDelete = tasks.Find(task => task.Id == check_id);
+        Task task = FindById(id);
 
-        if (taskToDelete != null)
-        {
-            tasks.Remove(taskToDelete);
-            Console.WriteLine("Task deleted successfully!");
-        }
-        else
+        if (task == null)
         {
             Console.WriteLine("Task not found!");
         }
+
+        return task;
     }
 
-    public static void SearchTasks()
+    public void CompleteTask()
     {
-        Console.WriteLine("Search for tasks with status:");
-        Console.WriteLine("Enter 'p' for Pending tasks or 'c' for Completed tasks:");
+        Task task = FindTaskById();
 
-        string choice = Console.ReadLine().ToLower();
+        if (task == null)
+        {
+            return;
+        }
+
+        task.Status = "complete";
+
+        Console.WriteLine("Task completed successfully!");
+    }
+
+    public void DeleteTask()
+    {
+        Task task = FindTaskById();
+
+        if (task == null)
+        {
+            return;
+        }
+
+        tasks.Remove(task);
+
+        Console.WriteLine("Task deleted successfully!");
+    }
+
+    public void SearchTasks()
+    {
+        Console.Write("Enter status (new/pending/complete): ");
+
+        string choice = Console.ReadLine();
+
+        if (string.IsNullOrWhiteSpace(choice))
+        {
+            Console.WriteLine("Status cannot be null or whitespace!");
+            return;
+        }
+
+        choice = choice.Trim().ToLower();
+
+        if (choice != "new" &&
+            choice != "pending" &&
+            choice != "complete")
+        {
+            Console.WriteLine(
+                "Invalid status! Use 'new', 'pending', or 'complete'."
+            );
+            return;
+        }
+
         bool found = false;
+
         foreach (Task task in tasks)
         {
-            if (choice == "p" && task.Status.ToLower() == "pending")
+            if (task.Status == choice)
             {
-                Console.WriteLine(
-                    $"Task Id: {task.Id}\nTask Status: {task.Status}\nTask Description: {task.Description}\n"
-                );
-                found = true;
-            }
-            else if (choice == "c" && task.Status.ToLower() == "completed")
-            {
-                Console.WriteLine(
-                    $"Task Id: {task.Id}\nTask Status: {task.Status}\nTask Description: {task.Description}\n"
-                );
+                task.DisplayTask();
                 found = true;
             }
         }
@@ -146,25 +201,58 @@ public class Program
             Console.WriteLine("No matching tasks found!");
         }
     }
-public static void Main() {
+
+    public static void Main()
+    {
+        Program program = new Program();
 
         bool running = true;
+
         while (running)
         {
-            Console.WriteLine("Choose an option: \n 1.Add a Task\n2.List All Tasks\n3.Complete Task by Id\n4.Delete Task by Id\n5.Search Task by Status \n");
+            Console.WriteLine(
+                "\nChoose an option:\n" +
+                "1. Add a Task\n" +
+                "2. List All Tasks\n" +
+                "3. Complete Task by Id\n" +
+                "4. Delete Task by Id\n" +
+                "5. Search Task by Status\n" +
+                "6. Exit"
+            );
+
             string choice = Console.ReadLine();
+
             switch (choice)
             {
-                case "1": AddTask(); break;
-                case "2": ListTask(); break;
-                case "3": CompleteTask(); break;
-                case "4": DeleteTask(); break;
-                case "5": SearchTasks(); break;
-                    
-                default: running = false; break;
-            }
-            
-        }
+                case "1":
+                    program.AddTask();
+                    break;
 
+                case "2":
+                    program.ListTask();
+                    break;
+
+                case "3":
+                    program.CompleteTask();
+                    break;
+
+                case "4":
+                    program.DeleteTask();
+                    break;
+
+                case "5":
+                    program.SearchTasks();
+                    break;
+
+                case "6":
+                    running = false;
+                    break;
+
+                default:
+                    Console.WriteLine("Invalid option!");
+                    break;
+            }
+        }
     }
+
 }
