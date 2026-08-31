@@ -1,15 +1,21 @@
-﻿using DotnetBasic;
+﻿using System.Text.RegularExpressions;
+using DotnetBasic;
 
 public class Task : Entity
 {
     private string status;
     private string description;
+    public DateTime CreatedDate { get; set; }
+
+    public DateOnly EffectiveDate { get; set; }
+
+    public DateTime UpdatedDate { get; set; }
 
     public string Status
     {
         get
         {
-            return status;
+            return status;     
         }
         set
         {
@@ -57,7 +63,10 @@ public class Task : Entity
         Console.WriteLine(
             $"Task Id: {Id}\n" +
             $"Task Status: {Status}\n" +
-            $"Task Description: {Description}\n"
+            $"Task Description: {Description}\n" +
+            $"Created Date: {CreatedDate:dd/MM/yyyy HH:mm:ss}\n" +
+            $"Effective Date: {EffectiveDate:dd/MM/yyyy}\n" +
+            $"Updated Date: {UpdatedDate:dd/MM/yyyy HH:mm:ss}\n"
         );
     }
 }
@@ -74,13 +83,50 @@ public class Program : TaskMethods
         Console.Write("Enter task description: ");
         string description = Console.ReadLine();
 
+        DateOnly effectiveDate;
+
+        while (true)
+        {
+            Console.Write("Enter effective date (dd/MM/yyyy): ");
+            string effectiveDateInput = Console.ReadLine();
+
+            string datePattern =
+                @"^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/\d{4}$";
+
+            if (!Regex.IsMatch(effectiveDateInput, datePattern))
+            {
+                Console.WriteLine(
+                    "Invalid date format! Please use dd/MM/yyyy."
+                );
+                continue;
+            }
+
+            if (!DateOnly.TryParseExact(
+                    effectiveDateInput,
+                    "dd/MM/yyyy",
+                    out effectiveDate))
+            {
+                Console.WriteLine(
+                    "Invalid date! Please enter a valid calendar date."
+                );
+                continue;
+            }
+
+            break;
+        }
+
         try
         {
+            DateTime now = DateTime.Now;
+
             Task task = new Task
             {
                 Id = nextId++,
                 Status = "new",
-                Description = description
+                Description = description,
+                CreatedDate = now,
+                EffectiveDate = effectiveDate,
+                UpdatedDate = now
             };
 
             tasks.Add(task);
@@ -102,9 +148,22 @@ public class Program : TaskMethods
             return;
         }
 
+        bool found = false;
+
+        DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+
         foreach (Task task in tasks)
         {
-            task.DisplayTask();
+            if (task.EffectiveDate <= today)
+            {
+                task.DisplayTask();
+                found = true;
+            }
+        }
+
+        if (!found)
+        {
+            Console.WriteLine("No effective tasks found!");
         }
     }
 
