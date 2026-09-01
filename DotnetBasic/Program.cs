@@ -1,5 +1,8 @@
 ﻿using System.Text.RegularExpressions;
 using DotnetBasic;
+using System.Linq;
+
+using System.Text.Json;
 
 public class Task : Entity
 {
@@ -10,6 +13,7 @@ public class Task : Entity
     public DateOnly EffectiveDate { get; set; }
 
     public DateTime UpdatedDate { get; set; }
+    
 
     public string Status
     {
@@ -74,9 +78,38 @@ public class Task : Entity
 public class Program : TaskMethods
 {
     private static List<Task> tasks = new List<Task>();
+    private const string FilePath = "tasks.json";
 
     // Never decreases, so IDs are never reused.
     private static int nextId = 1;
+    
+    private static void LoadTasks()
+    {
+        if (!File.Exists(FilePath))
+        {
+            return;
+        }
+
+        string json = File.ReadAllText(FilePath);
+
+        tasks = JsonSerializer.Deserialize<List<Task>>(json)
+                ?? new List<Task>();
+        
+        nextId = tasks.Any()
+            ? tasks.Max(task => task.Id) + 1
+            : 1;
+    }
+    private static void SaveTasks()
+    {
+        string json = JsonSerializer.Serialize(
+            tasks,
+            new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+
+        File.WriteAllText(FilePath, json);
+    }
 
     public void AddTask()
     {
@@ -130,6 +163,7 @@ public class Program : TaskMethods
             };
 
             tasks.Add(task);
+            SaveTasks();
 
             Console.WriteLine("Task added successfully!");
             Console.WriteLine($"Task ID: {task.Id}");
@@ -142,34 +176,27 @@ public class Program : TaskMethods
 
     public void ListTask()
     {
-        if (tasks.Count == 0)
+        DateOnly today = DateOnly.FromDateTime(DateTime.Now);
+
+        var effectiveTasks = tasks
+            .Where(task => task.EffectiveDate <= today)
+            .ToList();
+
+        if (effectiveTasks.Count == 0)
         {
-            Console.WriteLine("No tasks found!");
+            Console.WriteLine("No effective tasks found!");
             return;
         }
 
-        bool found = false;
-
-        DateOnly today = DateOnly.FromDateTime(DateTime.Today);
-
-        foreach (Task task in tasks)
+        foreach (Task task in effectiveTasks)
         {
-            if (task.EffectiveDate <= today)
-            {
-                task.DisplayTask();
-                found = true;
-            }
-        }
-
-        if (!found)
-        {
-            Console.WriteLine("No effective tasks found!");
+            task.DisplayTask();
         }
     }
 
     public Task FindById(int id)
     {
-        return tasks.Find(task => task.Id == id);
+        return tasks.FirstOrDefault(task => task.Id == id);
     }
 
     public Task FindTaskById()
@@ -202,6 +229,7 @@ public class Program : TaskMethods
         }
 
         task.Status = "complete";
+        SaveTasks();
 
         Console.WriteLine("Task completed successfully!");
     }
@@ -216,6 +244,7 @@ public class Program : TaskMethods
         }
 
         tasks.Remove(task);
+        SaveTasks();
 
         Console.WriteLine("Task deleted successfully!");
     }
@@ -244,27 +273,26 @@ public class Program : TaskMethods
             return;
         }
 
-        bool found = false;
+        var matchingTasks = tasks
+            .Where(task => task.Status == choice)
+            .ToList();
 
-        foreach (Task task in tasks)
-        {
-            if (task.Status == choice)
-            {
-                task.DisplayTask();
-                found = true;
-            }
-        }
-
-        if (!found)
+        if (matchingTasks.Count == 0)
         {
             Console.WriteLine("No matching tasks found!");
+            return;
+        }
+
+        foreach (Task task in matchingTasks)
+        {
+            task.DisplayTask();
         }
     }
 
     public static void Main()
     {
+        LoadTasks();
         Program program = new Program();
-
         bool running = true;
 
         while (running)
